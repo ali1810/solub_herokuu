@@ -142,22 +142,7 @@ def generate(smiles):
     return descriptors
 
 
-@app.route('/download-file', methods=["GET", "POST"])
-def predictfile():
-    data = pd.read_excel(app.config['UPLOAD_PATH'])
-    data=data.smiles
-    #loaded_model= pickle.load(open('/content/drive/MyDrive/KIT/finalized_model_96_new.pkl', 'rb'))
-    descriptors =generate(data)
-    descriptors =np.array(descriptors) 
-    preds=model.predict(descriptors)
-    #print(preds)
-    data1=pd.DataFrame(preds, columns=['Predictions']) 
-    #data['Predictions'] = preds
-    result = pd.concat([data, data1], axis=1)
-    #print(result)
-    result.to_csv('out.csv')
-
-app.config["UPLOAD_PATH"]=  'C:/Users/ali/Desktop/solub_herokuu-main/static/uploads'
+app.config["UPLOAD_PATH"]=  'C:/Users/ali/Desktop/solub_herokuu-main/static'
 app.config["DOWNLOAD_PATH"]='C:/Users/ali/Desktop/solub_herokuu-main/static/downloads'
 @app.route('/upload_file', methods=["GET", "POST"])
 def upload_file():
@@ -187,30 +172,6 @@ def upload_file():
         result.to_csv(filepath)
         return send_file(filepath, as_attachment=True)
     return render_template("upload_file.html", msg="Please choose a 'csv' file with smiles")    
-@app.route('/download_file', methods=["GET", "POST"])
-def download_file():
-    if request.method == 'POST':
-        #inpath=os.path.join('static','Test'+'.csv') 
-        data = pd.read_csv('static/uploads/file_name')
-        #print(data)
-        data=data.smiles
-        #loaded_model= pickle.load(open('/content/drive/MyDrive/KIT/finalized_model_96_new.pkl', 'rb'))
-        descriptors =generate(data)
-        descriptors =np.array(descriptors) 
-        preds=model.predict(descriptors)
-        #print(preds)
-        data1=pd.DataFrame(preds, columns=['Predictions']) 
-        #data['Predictions'] = preds
-        result = pd.concat([data, data1], axis=1)
-         #print(result)
-        filepath=os.path.join('static/uploads','out'+'.csv')     
-        result.to_csv(filepath)
-        #return render_template('down.html',out=filepath)
-        #path = static/out.csv"
-        return send_file(filepath, as_attachment=True)
-    
-    return render_template('sub.html')    
-
 if __name__ == "__main__":
     app.run(debug=True, port=7000)
 
