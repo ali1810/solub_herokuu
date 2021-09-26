@@ -3,8 +3,8 @@
 # python3 app.py
 
 #import the necessary libraries
-from flask import Flask, render_template , request
-import pickle
+from flask import Flask, render_template , request,redirect,send_file
+import pickle,os,glob
 
 import numpy as np
 import pandas as pd
@@ -90,7 +90,7 @@ def predictSingle(smiles, model):
 
 @app.route("/")
 def home():
-    return render_template('index.html')
+    return render_template('index1.html')
 
 
 @app.route('/predict', methods=['POST'])
@@ -101,9 +101,116 @@ def predict():
     predOUT = predictSingle(smiles, model)
     #predOUT = predOUT +0.20
 
-    return render_template('index.html', prediction_text = "The log S is {}".format(predOUT))
+    return render_template('index1.html', prediction_text = "The log S is {}".format(predOUT))
     #return render_template('sub.html',resu= "The log S is {}".format(predOUT))  
+def generate(smiles):
+    moldata = []
+    for elem in smiles:
+        mol = Chem.MolFromSmiles(elem)
+        moldata.append(mol)
+
+    baseData = np.arange(1, 1)
+    i = 0
+    for mol in moldata:
+
+        desc_MolLogP = Crippen.MolLogP(mol)
+        desc_MolWt = Descriptors.MolWt(mol)
+        desc_NumRotatableBonds = Lipinski.NumRotatableBonds(mol)
+        desc_AromaticProportion = getAromaticProportion(mol)
+        desc_Ringcount        =   Descriptors.RingCount(mol)
+        desc_TPSA = Descriptors.TPSA(mol)
+        desc_Hdonrs=Lipinski.NumHDonors(mol)
+        desc_SaturatedRings = Lipinski.NumSaturatedRings(mol)   
+        desc_AliphaticRings = Lipinski.NumAliphaticRings(mol) 
+        desc_HAcceptors = Lipinski.NumHAcceptors(mol)
+        desc_Heteroatoms = Lipinski.NumHeteroatoms(mol)
+        #desc_molMR=Descriptors.MolMR(mol)
+        row = np.array([desc_MolLogP,
+                        desc_MolWt,
+                        desc_NumRotatableBonds,
+                        desc_AromaticProportion,desc_Ringcount,desc_TPSA,desc_Hdonrs,desc_SaturatedRings,desc_AliphaticRings,desc_HAcceptors,desc_Heteroatoms])
+
+        if i == 0:
+            baseData = row
+        else:
+            baseData = np.vstack([baseData, row])
+        i = i + 1
+
+    columnNames = ["MolLogP", "MolWt", "NumRotatableBonds", "AromaticProportion","Ring_Count","TPSA","H_donors","Saturated_Rings","AliphaticRings","H_Acceptors","Heteroatoms"]
+    descriptors = pd.DataFrame(data=baseData, columns=columnNames)
+
+    return descriptors
+
+
+@app.route('/download-file', methods=["GET", "POST"])
+def predictfile():
+    data = pd.read_excel(app.config['UPLOAD_PATH'])
+    data=data.smiles
+    #loaded_model= pickle.load(open('/content/drive/MyDrive/KIT/finalized_model_96_new.pkl', 'rb'))
+    descriptors =generate(data)
+    descriptors =np.array(descriptors) 
+    preds=model.predict(descriptors)
+    #print(preds)
+    data1=pd.DataFrame(preds, columns=['Predictions']) 
+    #data['Predictions'] = preds
+    result = pd.concat([data, data1], axis=1)
+    #print(result)
+    result.to_csv('out.csv')
+
+app.config["UPLOAD_PATH"]=  'C:/Users/ali/Desktop/solub_herokuu-main/static/uploads'
+app.config["DOWNLOAD_PATH"]='C:/Users/ali/Desktop/solub_herokuu-main/static/downloads'
+@app.route('/upload_file', methods=["GET", "POST"])
+def upload_file():
+    if request.method == 'POST':
+        dir = app.config["UPLOAD_PATH"]
+        for zippath in glob.iglob(os.path.join(dir, '*.csv')):
+            os.remove(zippath)
+        #os.remove("static/uploads" +item) 
+        f=request.files['file_name']
+        #print(f)
+        #filepath=os.path.join('static',f.filename)
+        f.save(os.path.join(app.config['UPLOAD_PATH'], f.filename))
+        #f.save(filepath)
+        #return render_template("upload_file.html",msg="File has been uploaded")
+        data = pd.read_csv(os.path.join(app.config['UPLOAD_PATH'], f.filename))
+        #print(data)
+        data=data.smiles
+        #loaded_model= pickle.load(open('/content/drive/MyDrive/KIT/finalized_model_96_new.pkl', 'rb'))
+        descriptors =generate(data)
+        descriptors =np.array(descriptors) 
+        preds=model.predict(descriptors)
+        #print(preds)
+        data1=pd.DataFrame(preds, columns=['Predictions']) 
+        #data['Predictions'] = preds
+        result = pd.concat([data, data1], axis=1)
+        filepath=os.path.join('static','out'+'.csv')
+        result.to_csv(filepath)
+        return send_file(filepath, as_attachment=True)
+    return render_template("upload_file.html", msg="Please choose a 'csv' file with smiles")    
+@app.route('/download_file', methods=["GET", "POST"])
+def download_file():
+    if request.method == 'POST':
+        #inpath=os.path.join('static','Test'+'.csv') 
+        data = pd.read_csv('static/uploads/file_name')
+        #print(data)
+        data=data.smiles
+        #loaded_model= pickle.load(open('/content/drive/MyDrive/KIT/finalized_model_96_new.pkl', 'rb'))
+        descriptors =generate(data)
+        descriptors =np.array(descriptors) 
+        preds=model.predict(descriptors)
+        #print(preds)
+        data1=pd.DataFrame(preds, columns=['Predictions']) 
+        #data['Predictions'] = preds
+        result = pd.concat([data, data1], axis=1)
+         #print(result)
+        filepath=os.path.join('static/uploads','out'+'.csv')     
+        result.to_csv(filepath)
+        #return render_template('down.html',out=filepath)
+        #path = static/out.csv"
+        return send_file(filepath, as_attachment=True)
+    
+    return render_template('sub.html')    
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=7000)
 
