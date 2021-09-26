@@ -142,7 +142,7 @@ def generate(smiles):
     return descriptors
 
 
-app.config["UPLOAD_PATH"]=  'C:/Users/ali/Desktop/solub_herokuu-main/static'
+app.config["UPLOAD_PATH"]=  'static'
 app.config["DOWNLOAD_PATH"]='C:/Users/ali/Desktop/solub_herokuu-main/static/downloads'
 @app.route('/upload_file', methods=["GET", "POST"])
 def upload_file():
